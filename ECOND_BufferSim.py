@@ -15,10 +15,11 @@ parser.add_argument('-N',default="40000000")
 parser.add_argument('--source',default="eol")
 args = parser.parse_args()
 
+from ECOND_Buffer import ECOND_Buffer
 
 N_BX=int(eval(args.N))
 
-
+#load in data from csv file outputs of getDAQ_Data.py
 if args.source=="oldTTbar":
     daq_Data = pd.read_csv(f'Data/ttbar_DAQ_data_0.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]
 
@@ -48,12 +49,17 @@ else:
     print('unknown input')
     exit()
 print(len(daq_Data))
-entryList = daq_Data.entry.unique()
-print(len(entryList))
 
+
+#get a list of the unique entry numbers
+entryList = daq_Data.entry.unique()
+
+#index the pandas datagrame by entry, layer, and waferu/v
 daq_Data.set_index(['entry','layer','waferu','waferv'],inplace=True)
 daq_Data.sort_index(inplace=True)
 
+#creates an 'empty' dataframe to store the number of words from all modules for a given event
+#  this is necessary because of the zero suppression that goes into the MC ntuples, and will keep data in a fixed order
 evt_Data = daq_Data.groupby(['layer','waferu','waferv']).any()[['HDM']]
 evt_Data['Words'] = 0
 
@@ -62,93 +68,18 @@ t_now = datetime.datetime.now()
 print ('     ',(t_now-t_last))
 t_last = t_now
 
+#LHC bunch structure (1 == filled bunch, where L1A could come from, 0 = empty bunch)
 bunchStructure = np.array(
     ((([1]*72 + [0]*8)*3 +[0]*30)*2 +
     (([1]*72 + [0]*8)*4 +[0]*31) )*3 +
     (([1]*72 + [0]*8)*3 +[0]*30)*3 +
     [0]*81)
 
-
+# rate, in terms of 1/N BX, for which an L1A should happen
 triggerRate = 40e6/7.5e5 * sum(bunchStructure)/len(bunchStructure)
 
-import numba
 
-@numba.jit(nopython=True)
-def moveBuffer(buffContent, buffStarts, buffLen):
-    for i in range(len(buffStarts)):
-        x = buffStarts[i]
-        buffContent[x:x+buffLen-2] = buffContent[x+1:x+buffLen-1]
-
-@numba.jit(nopython=True)
-def _size(buffContent, buffStarts, buffStops):
-    buffSize = []
-    for i in range(len(buffStarts)):
-        buffSize.append(buffContent[buffStarts[i]:buffStops[i]].sum())
-    return np.array(buffSize)
-        
-@numba.jit(nopython=True)
-def _get(buffContent, buffStarts, buffStops):
-    buffer = []
-    for i in range(len(buffStarts)):
-        buffer.append(buffContent[buffStarts[i]:buffStops[i]])
-    return buffer
-
-class ECOND_Buffer:
-    def __init__(self, nModules, buffSize, nLinks, overflow=12*128):
-        self.buffer = np.zeros(nModules*buffSize,np.int16)
-        self.starts=np.arange(nModules)*buffSize                                             
-        self.write_pointer=np.arange(nModules)*buffSize        
-
-        self.buffSize = buffSize
-        self.nLinks = nLinks
-        self.overflow = overflow
-
-        self.maxSize = np.zeros(nModules,dtype=np.uint16)
-        self.maxBX_First = np.zeros(nModules,dtype=np.uint32)
-        self.maxBX_Last = np.zeros(nModules,dtype=np.uint32)
-        self.overflowCount = np.zeros(nModules,dtype=np.uint32)
-
-    def drain(self):
-        bufferNotEmpty = self.write_pointer>self.starts
-        self.buffer[self.starts[bufferNotEmpty]] -= self.nLinks
-
-        isEmpty = self.buffer[ self.starts ]< 0
-        while isEmpty.sum()>0:
-            lenBuffer = self.write_pointer-self.starts
-
-            pushForward = self.starts[(isEmpty) & (lenBuffer>1)]
-
-            self.buffer[ pushForward + 1 ] += self.buffer[ pushForward ]
-
-            moveBuffer(self.buffer, self.starts[isEmpty],self.buffSize)
-            self.write_pointer[isEmpty] -= 1
-            
-            isEmpty = self.buffer[ self.starts ]< 0
-
-    def size(self):
-        return _size(self.buffer.copy(), self.starts.copy(), self.write_pointer.copy())
-
-    def get(self):
-        return _get(self.buffer.copy(), self.starts.copy(), self.write_pointer.copy())
-
-    
-    def write(self, data, i_BX):
-        willOverflow = (self.size() + data) > self.overflow
-        self.overflowCount[willOverflow] += 1
-        data[willOverflow] = 1
-
-        self.buffer[self.write_pointer] += data
-        self.write_pointer += 1
-
-        buffSize=self.size()
-
-        self.maxBX_First[(self.maxSize<buffSize)] = i_BX
-
-        self.maxSize = np.maximum((buffSize),self.maxSize)
-        self.maxBX_Last[(self.maxSize==buffSize)] = i_BX            
-
-
-
+# list of buffers, where we simulate with a given number of eTx
 econs = [ECOND_Buffer(163,50,nLinks=1,overflow=12*128),
          ECOND_Buffer(163,50,nLinks=2,overflow=12*128),
          ECOND_Buffer(163,50,nLinks=3,overflow=12*128),
@@ -171,8 +102,13 @@ evt = np.random.choice(entryList)
 data  = evt_Data['Words'].add(daq_Data.loc[evt,'TotalWords'],fill_value=0).astype(np.int16).values
 # print('    -- ',data[:3])
 
+#list to keep track of what would be in the HGCROC buffer
 HGROCReadInBuffer.append(data)
-ReadInDelayCounter=40
+
+#delay between when consecutive L1A's can be transmitted (to be checked if this is supposed to be 40 or 41)
+readInDelay = 40
+
+ReadInDelayCounter=readInDelay
 
 for iBX in range(1,N_BX+1):
     if iBX%(N_BX/50)==0:
@@ -182,24 +118,30 @@ for iBX in range(1,N_BX+1):
 
     orbitBX = iBX%3564
 
+    #randomly decide if an L1A is issued in this BX
     hasL1A = np.random.uniform()<1./triggerRate and bunchStructure[orbitBX]
-    
+
+    # drain each of the econs
     for i in range(len(econs)):
         econs[i].drain()
+
+    # remove one from read in delay counter
     if ReadInDelayCounter >0:
         ReadInDelayCounter -= 1
-    
+
+    # randomly pick an event, and add it to the HGCROC buffer
     if hasL1A:
         evt = np.random.choice(entryList)
         data  = evt_Data['Words'].add(daq_Data.loc[evt,'TotalWords'],fill_value=0).astype(np.int16).values
 
         HGROCReadInBuffer.append(data)
 
+    # add event from HGCROC buffer to the ECOND buffer, accounting for the read in delay (reset read in delay counter as well)
     if len(HGROCReadInBuffer)>0 and (ReadInDelayCounter==0 or skipReadInBuffer):
         L1ACount += 1
-        ReadInDelayCounter = 40
+        ReadInDelayCounter = readInDelay
         data = HGROCReadInBuffer[0]
-#         print('   --- ', data[:5])
+
         HGROCReadInBuffer = HGROCReadInBuffer[1:]
 
         for i in range(len(econs)): 
