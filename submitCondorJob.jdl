@@ -1,0 +1,30 @@
+universe = vanilla
+Executable = runBufferSim.sh
+
+should_transfer_files = YES
+WhenToTransferOutput  = ON_EXIT
+notification = never
+
+Transfer_Input_Files = ECOND_BufferSim.py
+
+Output = LogFiles/DAQBufferStudy_$(sampleTyple)_$(cluster)_$(process).stdout
+Error  = LogFiles/DAQBufferStudy_$(sampleTyple)_$(cluster)_$(process).stderr
+Log    = LogFiles/DAQBufferStudy_$(sampleTyple)_$(cluster)_$(process).condor
+
+#+RequestMemory=2000
+
+# sampleType="oldTTbar"
+# Arguments = "$(sampleType)"
+# Queue 100
+
+sampleType=updatedTTbar
+Arguments = "$(sampleType)"
+Queue 100
+
+sampleType=eol
+Arguments = "$(sampleType)"
+Queue 100
+
+sampleType=startup
+Arguments = "$(sampleType)"
+Queue 100
