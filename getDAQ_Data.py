@@ -46,14 +46,14 @@ def getTree(fNumber=1,fNameBase = 'root://cmseos.fnal.gov//store/user/lpchgcal/C
 def getDF(_tree, fNumber, Nstart=0, Nstop=2, layerStart=5,layerStop=9):
 
     branchesOld = ['hgcdigi_zside','hgcdigi_layer','hgcdigi_waferu','hgcdigi_waferv','hgcdigi_cellu','hgcdigi_cellv','hgcdigi_wafertype','hgcdigi_data','hgcdigi_isadc','hgcdigi_dataBXm1','hgcdigi_isadcBXm1']
-    branchesNew = ['hgcdigi_zside','hgcdigi_layer','hgcdigi_waferu','hgcdigi_waferv','hgcdigi_cellu','hgcdigi_cellv','hgcdigi_wafertype','hgcdigi_data_BX2','hgcdigi_isadc_BX2','hgcdigi_toa_BX2','hgcdigi_data_BX1','hgcdigi_isadc_BX1']
+    branchesNew = ['hgcdigi_zside','hgcdigi_layer','hgcdigi_waferu','hgcdigi_waferv','hgcdigi_cellu','hgcdigi_cellv','hgcdigi_wafertype','hgcdigi_data_BX2','hgcdigi_isadc_BX2','hgcdigi_toa_BX2','hgcdigi_gain_BX2','hgcdigi_data_BX1','hgcdigi_isadc_BX1']
     # print(_tree.keys())
 
     if b'hgcdigi_data' in _tree.keys():
         fulldf = _tree.pandas.df(branchesOld,entrystart=Nstart,entrystop=Nstop)
     else:
         fulldf = _tree.pandas.df(branchesNew,entrystart=Nstart,entrystop=Nstop)
-    fulldf.columns = ['zside','layer','waferu','waferv','cellu','cellv','wafertype','data','isadc','toa','data_BXm1','isadc_BXm1']
+    fulldf.columns = ['zside','layer','waferu','waferv','cellu','cellv','wafertype','data','isadc','toa','gain','data_BXm1','isadc_BXm1']
 
     #select layers
 
@@ -87,6 +87,11 @@ def processDF(fulldf, outputName="test.csv", append=False):
     # ToA_thr = 12. # below this, we don't send ToA, above this we do, 12 fC is threshold listed in TDF
 
     #drop cells below ZS_thr
+    #Correction for leakage from BX1, following Pedro's suggestion
+    #https://github.com/cms-sw/cmssw/blob/master/SimCalorimetry/HGCalSimAlgos/interface/HGCalSiNoiseMap.icc#L18-L26
+    #80fC for 120um, 160 fC for 200 um and 320 fC for 300 um
+    BX1_leakage = np.array([0.066/0.934, 0.153/0.847, 0.0963/0.9037])
+    fulldf['data'] = fulldf.data-fulldf.data_BXm1*BX1_leakage[fulldf.gain]
     df_ZS = fulldf.loc[fulldf.data>ZS_thr[fulldf.wafertype]]
 
     df_ZS['BXM1_readout'] = df_ZS.data_BXm1>(ZS_thr_BXm1[df_ZS.wafertype])
