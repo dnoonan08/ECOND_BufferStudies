@@ -1,4 +1,4 @@
-import uproot
+import uproot3
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-i',default=0,type=int)
-parser.add_argument('--filesPerJob',default=5,type=int)
+parser.add_argument('--filesPerJob',default=10,type=int)
 parser.add_argument('--source',default="eol")
 args = parser.parse_args()
 
@@ -35,7 +35,7 @@ def getTree(fNumber=1,fNameBase = 'root://cmseos.fnal.gov//store/user/lpchgcal/C
     print ("File %s"%fName)
 
     try:
-        _tree = uproot.open(fName,xrootdsource=dict(chunkbytes=1024**3, limitbytes=1024**3))[treeName]
+        _tree = uproot3.open(fName,xrootdsource=dict(chunkbytes=1024**3, limitbytes=1024**3))[treeName]
         return _tree
     except:
         print ("---Unable to open file, skipping")
@@ -92,7 +92,7 @@ def processDF(fulldf, outputName="test.csv", append=False):
     df_ZS['TOA_readout'] = df_ZS.toa
     df_ZS['TOT_readout'] = ~df_ZS.isadc
 
-    df_ZS['Bits'] = 16 + 8*df_ZS.BXM1_readout + df_ZS.TOA_readout
+    df_ZS['Bits'] = 16 + 8*(df_ZS.BXM1_readout + df_ZS.TOA_readout)
 
 
     df_ZS.set_index(['zside','layer','waferu','waferv'],inplace=True)
@@ -167,8 +167,8 @@ elif args.source=="startup":
     fNameBase = 'root://cmseos.fnal.gov//store/user/dnoonan/HGCAL_Concentrator/TTbar_v11/ntuple_ttbar_D49_1120pre1_PU200_eolupdate_startup_qua_20200723_%i.root'
     outputName = f"Data/ttbar_startupNoise_DAQ_data_{args.i}.csv"
 elif args.source=="eol": 
-    jobs=range(120)
-    fNameBase = 'root://cmseos.fnal.gov//store/user/dnoonan/HGCAL_Concentrator/TTbar_v11/ntuple_ttbar_D49_1120pre1_PU200_eolupdate_qua_20200723_%i.root'
+    jobs=range(1)
+    fNameBase = 'root://cmseos.fnal.gov//store/user/rverma/Output/HGCAL_Concentrator/ntuple_ttbar_D49_1120pre1_PU200_eolupdate_qua_20200723_%i.root'
     outputName = f"Data/ttbar_eolNoise_DAQ_data_{args.i}.csv"
 else:
     print('unknown source')
