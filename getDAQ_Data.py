@@ -80,15 +80,16 @@ def processDF(fulldf, outputName="test.csv", append=False):
     fulldf["charge"] = np.where(fulldf.isadc==1,fulldf.data*adcLSB_, (int(tdcOnsetfC_/adcLSB_) + 1.0)*adcLSB_ + fulldf.data*tdcLSB_)
     fulldf["charge_BXm1"] = np.where(fulldf.isadc_BXm1==1,fulldf.data_BXm1*adcLSB_, (int(tdcOnsetfC_/adcLSB_) + 1.0)*adcLSB_ + fulldf.data*tdcLSB_)
 
-    ZS_thr = np.array([1.03 , 1.715, 2.575]) #0.5 MIP threshold, in fC, as found in CMSSW
+    #ZS_thr = np.array([1.03 , 1.715, 2.575]) #0.5 MIP threshold, in fC, as found in CMSSW
+    ZS_thr = np.array([5, 5, 5]) #5 ADC threshold for each wafer type
     ZS_thr_BXm1 = ZS_thr*5 #2.5 MIP threshold, in fC, as found in CMSSW
     # ZS_thr = np.array([0.7, 0.7, 0.7])
     # ToA_thr = 12. # below this, we don't send ToA, above this we do, 12 fC is threshold listed in TDF
 
     #drop cells below ZS_thr
-    df_ZS = fulldf.loc[fulldf.charge>ZS_thr[fulldf.wafertype]]
+    df_ZS = fulldf.loc[fulldf.data>ZS_thr[fulldf.wafertype]]
 
-    df_ZS['BXM1_readout'] = df_ZS.charge_BXm1>(ZS_thr_BXm1[df_ZS.wafertype])
+    df_ZS['BXM1_readout'] = df_ZS.data_BXm1>(ZS_thr_BXm1[df_ZS.wafertype])
     df_ZS['TOA_readout'] = df_ZS.toa
     df_ZS['TOT_readout'] = ~df_ZS.isadc
 
