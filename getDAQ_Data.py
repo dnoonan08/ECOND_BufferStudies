@@ -92,10 +92,11 @@ def processDF(fulldf, outputName="test.csv", append=False):
     #80fC for 120um, 160 fC for 200 um and 320 fC for 300 um
     BX1_leakage = np.array([0.066/0.934, 0.153/0.847, 0.0963/0.9037])
     fulldf['data'] = fulldf.data-fulldf.data_BXm1*BX1_leakage[fulldf.gain]
-    df_ZS = fulldf.loc[fulldf.data>ZS_thr[fulldf.wafertype]]
+    zsCut = np.where(fulldf.isadc==0, False, fulldf.data>ZS_thr[fulldf.wafertype])
+    df_ZS = fulldf.loc[zsCut]
 
-    df_ZS['BXM1_readout'] = df_ZS.data_BXm1>(ZS_thr_BXm1[df_ZS.wafertype])
-    df_ZS['TOA_readout'] = df_ZS.toa
+    df_ZS['BXM1_readout'] = np.where(df_ZS.isadc_BXm1==0, False,  df_ZS.data_BXm1>ZS_thr_BXm1[df_ZS.wafertype])
+    df_ZS['TOA_readout'] = (df_ZS.toa>0).astype(int)
     df_ZS['TOT_readout'] = ~df_ZS.isadc
 
     df_ZS['Bits'] = 16 + 8*(df_ZS.BXM1_readout + df_ZS.TOA_readout)
