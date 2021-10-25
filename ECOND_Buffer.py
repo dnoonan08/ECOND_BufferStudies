@@ -23,7 +23,7 @@ def _get(buffContent, buffStarts, buffStops):
     return buffer
 
 class ECOND_Buffer:
-    def __init__(self, nModules, buffSize, nLinks, overflow=12*128):
+    def __init__(self, nModules, buffSize, nLinks, overflow=12*256):
         self.buffer = np.zeros(nModules*buffSize,np.int16)    # np array to keep track of the words per bx
         self.starts=np.arange(nModules)*buffSize              # starting point of buffer for each of the modules
         self.write_pointer=np.arange(nModules)*buffSize       # track a write pointer, ie the number of events curently in the buffer
