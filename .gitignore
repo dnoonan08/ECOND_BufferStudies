@@ -1,0 +1,4 @@
+*.root
+*.tar.gz
+hgcalPythonEnv
+Data
