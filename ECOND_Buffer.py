@@ -36,7 +36,13 @@ class ECOND_Buffer:
         self.maxBX_First = np.zeros(nModules,dtype=np.uint32)
         self.maxBX_Last = np.zeros(nModules,dtype=np.uint32)
         self.overflowCount = np.zeros(nModules,dtype=np.uint32)
-
+        #Create hist of buffer size for BX. Create N histograms of M bins, 
+        #but locally they get stored as one MxN length array
+        self.hist = np.array([0.]*nModules*overflow)
+        #keep track of the starting index of each of the N histograms
+        # when we want to fill a binX in one of the histograms, we will a
+        #ctually fill bin X + histStarts
+        self.histStarts = np.arange(nModules)*overflow
 
     def drain(self):
         #remove one word per link from the buffer
@@ -81,4 +87,8 @@ class ECOND_Buffer:
 
         self.maxSize = np.maximum((buffSize),self.maxSize)
         self.maxBX_Last[(self.maxSize==buffSize)] = i_BX            
+    
+    def sizeHist(self):
+        self.hist[self.size()+self.histStarts] += 1
 
+    

@@ -11,7 +11,7 @@ t_last = datetime.datetime.now()
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument('-N',default="40000000")
+parser.add_argument('-N',default="400000")
 parser.add_argument('--source',default="eol")
 args = parser.parse_args()
 
@@ -32,12 +32,14 @@ elif args.source=="updatedTTbar":
         daq_Data = pd.concat([daq_Data, pd.read_csv(f'Data/updated_ttbar_DAQ_data_{i}.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]])
 elif args.source=="eol":
     jobNumbers = np.random.choice(range(8),2,replace=False)
-    
+    daq_Data = pd.read_csv(f'Data/ttbar_eolNoise_DAQ_data_0.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]
+    ''' 
     daq_Data = pd.read_csv(f'Data/ttbar_eolNoise_DAQ_data_{jobNumbers[0]}.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]
 
     for i in jobNumbers[1:]:
         print(i)
         daq_Data = pd.concat([daq_Data, pd.read_csv(f'Data/ttbar_eolNoise_DAQ_data_{i}.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]])
+    '''
 elif args.source=="startup":
     jobNumbers = np.random.choice(range(8),2,replace=False)
 
@@ -80,12 +82,12 @@ triggerRate = 40e6/7.5e5 * sum(bunchStructure)/len(bunchStructure)
 
 
 # list of buffers, where we simulate with a given number of eTx
-econs = [ECOND_Buffer(163,50,nLinks=1,overflow=12*128),
-         ECOND_Buffer(163,50,nLinks=2,overflow=12*128),
-         ECOND_Buffer(163,50,nLinks=3,overflow=12*128),
-         ECOND_Buffer(163,50,nLinks=4,overflow=12*128),
-         ECOND_Buffer(163,50,nLinks=5,overflow=12*128),
-         ECOND_Buffer(163,50,nLinks=6,overflow=12*128)
+econs = [ECOND_Buffer(163,50,nLinks=1,overflow=12*256),
+         ECOND_Buffer(163,50,nLinks=2,overflow=12*256),
+         ECOND_Buffer(163,50,nLinks=3,overflow=12*256),
+         ECOND_Buffer(163,50,nLinks=4,overflow=12*256),
+         ECOND_Buffer(163,50,nLinks=5,overflow=12*256),
+         ECOND_Buffer(163,50,nLinks=6,overflow=12*256)
         ]
 
 
@@ -124,6 +126,7 @@ for iBX in range(1,N_BX+1):
     # drain each of the econs
     for i in range(len(econs)):
         econs[i].drain()
+        econs[i].sizeHist()
 
     # remove one from read in delay counter
     if ReadInDelayCounter >0:
@@ -156,4 +159,5 @@ for i in range(len(econs)):
     print('maxSize=',econs[i].maxSize.tolist())
     print('maxBX_First=',econs[i].maxBX_First.tolist())
     print('maxBX_Last=',econs[i].maxBX_Last.tolist())
+    print("sizeHist=", econs[i].hist.reshape(163,3072).tolist())
     print()

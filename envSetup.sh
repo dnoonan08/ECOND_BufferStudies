@@ -9,6 +9,7 @@ source $NAME/bin/activate
 python -m pip install setuptools pip --upgrade
 python -m pip install uproot
 python -m pip install uproot3
+python -m pip install awkward 
 python -m pip install pyjet
 
 sed -i '40s/.*/VIRTUAL_ENV="$(cd "$(dirname "$(dirname "${BASH_SOURCE[0]}" )")" \&\& pwd)"/' $NAME/bin/activate
