@@ -116,7 +116,7 @@ for iBX in range(1,N_BX+1):
 
     # drain each of the econs
     for i in range(len(econs)):
-        econs[i].fill()
+        econs[i].fillHist()
         econs[i].drain()
 
     # remove one from read in delay counter

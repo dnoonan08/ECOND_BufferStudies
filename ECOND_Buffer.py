@@ -88,7 +88,7 @@ class ECOND_Buffer:
         self.maxSize = np.maximum((buffSize),self.maxSize)
         self.maxBX_Last[(self.maxSize==buffSize)] = i_BX            
     
-    def fill(self):
+    def fillHist(self):
         self.hist[self.size()+self.histStarts] += 1
 
     
