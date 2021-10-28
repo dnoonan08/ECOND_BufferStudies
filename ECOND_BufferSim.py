@@ -12,6 +12,7 @@ t_last = datetime.datetime.now()
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('-N',default="400000")
+parser.add_argument('--files', default=1, type=int)
 parser.add_argument('--source',default="eol")
 args = parser.parse_args()
 
@@ -20,36 +21,26 @@ from ECOND_Buffer import ECOND_Buffer
 N_BX=int(eval(args.N))
 
 #load in data from csv file outputs of getDAQ_Data.py
+branchList = ['entry','layer','waferu','waferv','HDM','TotalWords']
+fName = "ttbar"
 if args.source=="oldTTbar":
-    daq_Data = pd.read_csv(f'Data/ttbar_DAQ_data_0.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]
-
-    for i in range(1,16):
-        daq_Data = pd.concat([daq_Data, pd.read_csv(f'Data/ttbar_DAQ_data_{i}.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]])
+    fName = "ttbar"
 elif args.source=="updatedTTbar":
-    daq_Data = pd.read_csv(f'Data/updated_ttbar_DAQ_data_0.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]
-
-    for i in range(1,16):
-        daq_Data = pd.concat([daq_Data, pd.read_csv(f'Data/updated_ttbar_DAQ_data_{i}.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]])
+    fName = "updated_ttbar"
 elif args.source=="eol":
-    jobNumbers = np.random.choice(range(8),2,replace=False)
-    daq_Data = pd.read_csv(f'Data/ttbar_eolNoise_DAQ_data_0.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]
-    ''' 
-    daq_Data = pd.read_csv(f'Data/ttbar_eolNoise_DAQ_data_{jobNumbers[0]}.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]
-
-    for i in jobNumbers[1:]:
-        print(i)
-        daq_Data = pd.concat([daq_Data, pd.read_csv(f'Data/ttbar_eolNoise_DAQ_data_{i}.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]])
-    '''
+    fName = "ttbar_eolNoise"
 elif args.source=="startup":
-    jobNumbers = np.random.choice(range(8),2,replace=False)
-
-    daq_Data = pd.read_csv(f'Data/ttbar_startupNoise_DAQ_data_{jobNumbers[0]}.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]
-
-    for i in jobNumbers[1:]:
-        daq_Data = pd.concat([daq_Data, pd.read_csv(f'Data/ttbar_startupNoise_DAQ_data_{i}.csv')[['entry','layer','waferu','waferv','HDM','TotalWords']]])
+    fName = "ttbar_startupNoise"
 else:
     print('unknown input')
     exit()
+for i in range(args.files):
+    fileName = f'Data/%s_DAQ_data_{i}.csv'%fName
+    print(fileName)
+    if i==0:
+        daq_Data = pd.read_csv(fileName)[branchList]
+    else:
+        daq_Data = pd.concat([daq_Data, pd.read_csv(fileName)[branchList]])
 print(len(daq_Data))
 
 
@@ -125,8 +116,8 @@ for iBX in range(1,N_BX+1):
 
     # drain each of the econs
     for i in range(len(econs)):
+        econs[i].fill()
         econs[i].drain()
-        econs[i].sizeHist()
 
     # remove one from read in delay counter
     if ReadInDelayCounter >0:
