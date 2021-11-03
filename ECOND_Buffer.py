@@ -29,7 +29,7 @@ class ECOND_Buffer:
     def write(self, data, i_BX):
         willOverflow = (self.buffer + data) > self.overflow
         self.overflowCount[willOverflow] += 1
-        data[willOverflow] = 1
+        data[willOverflow] = 3
         self.buffer += data
 
         self.maxBX_First[(self.maxSize<self.buffer)] = i_BX
