@@ -1,4 +1,5 @@
-import uproot3
+import uproot
+import awkward as ak
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,6 +9,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument('-i',default=0,type=int)
 parser.add_argument('--filesPerJob',default=10,type=int)
 parser.add_argument('--source',default="eol")
+parser.add_argument('--layerStart',default=5)
+parser.add_argument('--layerStop',default=9)
+parser.add_argument('--chunkSize',default=10,type=int)
+parser.add_argument('--maxEvents',default=None, type=int)
 args = parser.parse_args()
 
 pd.options.mode.chained_assignment = None
@@ -35,42 +40,11 @@ def getTree(fNumber=1,fNameBase = 'root://cmseos.fnal.gov//store/user/lpchgcal/C
     print ("File %s"%fName)
 
     try:
-        _tree = uproot3.open(fName,xrootdsource=dict(chunkbytes=1024**3, limitbytes=1024**3))[treeName]
+        _tree = uproot.open(fName,xrootdsource=dict(chunkbytes=1024**3, limitbytes=1024**3))[treeName]
         return _tree
     except:
         print ("---Unable to open file, skipping")
         return None
-
-
-
-def getDF(_tree, fNumber, Nstart=0, Nstop=2, layerStart=5,layerStop=9):
-
-    branchesOld = ['hgcdigi_zside','hgcdigi_layer','hgcdigi_waferu','hgcdigi_waferv','hgcdigi_cellu','hgcdigi_cellv','hgcdigi_wafertype','hgcdigi_data','hgcdigi_isadc','hgcdigi_dataBXm1','hgcdigi_isadcBXm1']
-    branchesNew = ['hgcdigi_zside','hgcdigi_layer','hgcdigi_waferu','hgcdigi_waferv','hgcdigi_cellu','hgcdigi_cellv','hgcdigi_wafertype','hgcdigi_data_BX2','hgcdigi_isadc_BX2','hgcdigi_toa_BX2','hgcdigi_gain_BX2','hgcdigi_data_BX1','hgcdigi_isadc_BX1']
-    # print(_tree.keys())
-
-    if b'hgcdigi_data' in _tree.keys():
-        fulldf = _tree.pandas.df(branchesOld,entrystart=Nstart,entrystop=Nstop)
-    else:
-        fulldf = _tree.pandas.df(branchesNew,entrystart=Nstart,entrystop=Nstop)
-    fulldf.columns = ['zside','layer','waferu','waferv','cellu','cellv','wafertype','data','isadc','toa','gain','data_BXm1','isadc_BXm1']
-
-    #select layers
-
-    layerCut = (fulldf.layer>=layerStart) & (fulldf.layer<=layerStop)
-    fulldf = fulldf[layerCut]
-
-    #drop subentry from index
-    fulldf.reset_index('subentry',drop=True,inplace=True)
-
-    fulldf.reset_index(inplace=True)
-
-    #update entry number for negative endcap
-    fulldf['entry'] = fulldf['entry'] + fNumber*jobNumber_eventOffset
-    fulldf.loc[fulldf.zside==-1, 'entry'] = fulldf.loc[fulldf.zside==-1, 'entry'] + negZ_eventOffset
-
-    return fulldf
-
 
 def processDF(fulldf, outputName="test.csv", append=False):
 
@@ -188,17 +162,31 @@ for job in jobs[args.i*args.filesPerJob:(args.i+1)*args.filesPerJob]:
     print(job)
 
     _tree = getTree(fNumber=job,fNameBase=fNameBase)
+    print(_tree.num_entries)
+    branchesOld = ['hgcdigi_zside','hgcdigi_layer','hgcdigi_waferu','hgcdigi_waferv','hgcdigi_cellu','hgcdigi_cellv','hgcdigi_wafertype','hgcdigi_data','hgcdigi_isadc','hgcdigi_dataBXm1','hgcdigi_isadcBXm1']
+    branchesNew = ['hgcdigi_zside','hgcdigi_layer','hgcdigi_waferu','hgcdigi_waferv','hgcdigi_cellu','hgcdigi_cellv','hgcdigi_wafertype','hgcdigi_data_BX2','hgcdigi_isadc_BX2','hgcdigi_toa_BX2','hgcdigi_gain_BX2','hgcdigi_data_BX1','hgcdigi_isadc_BX1']
 
-    Nentries = _tree.numentries
+    if b'hgcdigi_data' in _tree.keys():
+        branches = branchesOld
+    else:
+        branches = branchesNew
 
-    chunkSize=10
+    N=0
+    for x in _tree.iterate(branches,entry_stop=args.maxEvents,step_size=args.chunkSize):
+        print(N)
+        N += args.chunkSize
+        layerCut = (x['hgcdigi_layer']>=args.layerStart) & (x['hgcdigi_layer']<=args.layerStop)
+        df = ak.to_pandas(x[layerCut])
+        df.columns = ['zside','layer','waferu','waferv','cellu','cellv','wafertype','data','isadc','toa','gain','data_BXm1','isadc_BXm1']
 
+        #drop subentry from index
+        df.reset_index('subentry',drop=True,inplace=True)
+        df.reset_index(inplace=True)
 
+        #update entry number for negative endcap
+        df['entry'] = df['entry'] + job*jobNumber_eventOffset
+        df.loc[df.zside==-1, 'entry'] = df.loc[df.zside==-1, 'entry'] + negZ_eventOffset
 
-    for chunkStart in range(0, Nentries, chunkSize):
-        print(chunkStart)
-        fulldf = getDF(_tree, fNumber = job, Nstart=chunkStart, Nstop=chunkStart+chunkSize, layerStart=5, layerStop=9)
-
-        processDF(fulldf, outputName=outputName, append=append)
+        processDF(df, outputName=outputName, append=append)
 
         append=True
