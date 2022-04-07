@@ -52,7 +52,7 @@ def processDF(fulldf, outputName="test.csv", append=False):
     #else data is TDC, charge = tdcStart  + data*tdcLSB
 
     fulldf["charge"] = np.where(fulldf.isadc==1,fulldf.data*adcLSB_, (int(tdcOnsetfC_/adcLSB_) + 1.0)*adcLSB_ + fulldf.data*tdcLSB_)
-    fulldf["charge_BXm1"] = np.where(fulldf.isadc_BXm1==1,fulldf.data_BXm1*adcLSB_, (int(tdcOnsetfC_/adcLSB_) + 1.0)*adcLSB_ + fulldf.data*tdcLSB_)
+    fulldf["charge_BXm1"] = np.where(fulldf.isadc_BXm1==1,fulldf.data_BXm1*adcLSB_, (int(tdcOnsetfC_/adcLSB_) + 1.0)*adcLSB_ + fulldf.data_BXm1*tdcLSB_)
 
     #ZS_thr = np.array([1.03 , 1.715, 2.575]) #0.5 MIP threshold, in fC, as found in CMSSW
     ZS_thr = np.array([5, 5, 5]) #5 ADC threshold for each wafer type
@@ -101,9 +101,10 @@ def processDF(fulldf, outputName="test.csv", append=False):
     dfBitsElink['occ'] = group['HDM'].count()
 
     dfBitsElink['eRxPacket_Words'] = (dfBitsElink.Bits/32+1).astype(int) + 2
+    dfBitsElink['eRxPacket_Words_NZS'] = np.ceil((37*24+ 8*dfBitsElink.TOA_readout)/32).astype(int)+2
 
 
-    group = dfBitsElink.reset_index()[['entry','zside','layer','waferu','waferv','HDM','occ','eRxPacket_Words']].groupby(['entry','zside','layer','waferu','waferv'])
+    group = dfBitsElink.reset_index()[['entry','zside','layer','waferu','waferv','HDM','occ','eRxPacket_Words', 'eRxPacket_Words_NZS']].groupby(['entry','zside','layer','waferu','waferv'])
     del dfBitsElink
     dfBits = group.sum()
     dfBits['HDM'] = group[['HDM']].any()
@@ -114,6 +115,7 @@ def processDF(fulldf, outputName="test.csv", append=False):
     evt_headerWords = 2
     evt_trailerWords = 2
     dfBits['TotalWords'] = evt_headerWords + dfBits.eRxPacket_Words + dfBits.EmptyLinks + evt_trailerWords
+    dfBits['TotalWords_NZS'] = evt_headerWords + dfBits.eRxPacket_Words_NZS + 30*dfBits.EmptyLinks +  evt_trailerWords
 
     dfBits.reset_index(inplace=True)
     dfBits.set_index(['layer','waferu','waferv'],inplace=True)
@@ -149,7 +151,7 @@ elif args.source=="startup":
     outputName = f"Data/ttbar_startupNoise_DAQ_data_{args.i}.csv"
 elif args.source=="eol": 
     jobs=range(1)
-    fNameBase = 'root://cmseos.fnal.gov//store/user/rverma/Output/HGCAL_Concentrator/ntuple_ttbar_D49_1120pre1_PU200_eolupdate_qua_20200723_%i.root'
+    fNameBase = 'root://cmseos.fnal.gov//store/user/rverma/Output/cms-hgcal-econd/ntuple/ntuple_Events_4807434_%i.root'
     outputName = f"Data/ttbar_eolNoise_DAQ_data_{args.i}.csv"
 else:
     print('unknown source')
