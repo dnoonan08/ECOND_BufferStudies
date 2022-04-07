@@ -9,15 +9,17 @@ t_start = datetime.datetime.now()
 t_last = datetime.datetime.now()
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-N',default="4000000")
+#parser.add_argument('-N',default="4000000")
+parser.add_argument('-N',default="40000")
 parser.add_argument('--files', default=1, type=int)
 parser.add_argument('--source',default="eol")
+parser.add_argument('--freqNZS',default=0, type=int)
 args = parser.parse_args()
 
 N_BX=int(eval(args.N))
 
 #load in data from csv file outputs of getDAQ_Data.py
-branchList = ['entry','layer','waferu','waferv','HDM','TotalWords']
+branchList = ['entry','layer','waferu','waferv','HDM','TotalWords', "TotalWords_NZS"]
 fName = "ttbar"
 if args.source=="oldTTbar":
     fName = "ttbar"
@@ -88,6 +90,7 @@ HGROCReadInBuffer.append(data)
 readInDelay = 40
 ReadInDelayCounter=readInDelay
 
+count = 0
 for iBX in range(1,N_BX+1):
     if iBX%(N_BX/50)==0:
         t_now = datetime.datetime.now()
@@ -108,8 +111,12 @@ for iBX in range(1,N_BX+1):
 
     # randomly pick an event, and add it to the HGCROC buffer
     if hasL1A:
+        count+=1
         evt = np.random.choice(entryList)
-        data  = evt_Data['Words'].add(daq_Data.loc[evt,'TotalWords'],fill_value=0).astype(np.int16).values
+        dataStr = "TotalWords"
+        if not args.freqNZS==0 and count%args.freqNZS==0:
+            dataStr = "TotalWords_NZS"
+        data  = evt_Data['Words'].add(daq_Data.loc[evt,dataStr],fill_value=0).astype(np.int16).values
 
         HGROCReadInBuffer.append(data)
 
