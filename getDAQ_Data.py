@@ -100,7 +100,7 @@ def processDF(fulldf, outputName="test.csv", append=False):
     dfBitsElink['HDM'] = group[['HDM']].any()
     dfBitsElink['occ'] = group['HDM'].count()
 
-    dfBitsElink['eRxPacket_Words'] = (dfBitsElink.Bits/32+1).astype(int) + 2
+    dfBitsElink['eRxPacket_Words'] = np.ceil(dfBitsElink.Bits/32).astype(int) + 2
     dfBitsElink['eRxPacket_Words_NZS'] = np.ceil((37*24+ 8*dfBitsElink.TOA_readout)/32).astype(int)+2
 
 
