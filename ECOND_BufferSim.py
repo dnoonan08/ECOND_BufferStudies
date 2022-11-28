@@ -18,40 +18,48 @@ args = parser.parse_args()
 
 N_BX=int(eval(args.N))
 
-#load in data from csv file outputs of getDAQ_Data.py
-branchList = ['entry','layer','waferu','waferv','HDM','TotalWords', "TotalWords_NZS"]
-fName = "ttbar"
-if args.source=="oldTTbar":
-    fName = "ttbar"
-elif args.source=="updatedTTbar":
-    fName = "updated_ttbar"
-elif args.source=="eol":
-    fName = "ttbar_eolNoise"
-elif args.source=="startup":
-    fName = "ttbar_startupNoise"
-else:
-    print('unknown input')
-    exit()
-for i in range(args.files):
-    fileName = f'Data/%s_DAQ_data_{i}.csv'%fName
-    print(fileName)
-    if i==0:
-        daq_Data = pd.read_csv(fileName)[branchList]
-    else:
-        daq_Data = pd.concat([daq_Data, pd.read_csv(fileName)[branchList]])
-print(len(daq_Data))
+# #load in data from csv file outputs of getDAQ_Data.py
+# branchList = ['entry','layer','waferu','waferv','HDM','TotalWords', "TotalWords_NZS"]
+# fName = "ttbar"
+# if args.source=="oldTTbar":
+#     fName = "ttbar"
+# elif args.source=="updatedTTbar":
+#     fName = "updated_ttbar"
+# elif args.source=="eol":
+#     fName = "ttbar_eolNoise"
+# elif args.source=="startup":
+#     fName = "ttbar_startupNoise"
+# else:
+#     print('unknown input')
+#     exit()
+# for i in range(args.files):
+#     fileName = f'Data/%s_DAQ_data_{i}.csv'%fName
+#     print(fileName)
+#     if i==0:
+#         daq_Data = pd.read_csv(fileName)[branchList]
+#     else:
+#         daq_Data = pd.concat([daq_Data, pd.read_csv(fileName)[branchList]])
+# print(len(daq_Data))
+# df=pd.read_csv('Data/ttbar_eolNoise_DAQ_data_0.csv')
+# daq_Data['waferLUV']=daq_Data.layer*10000 + daq_D.waferu*100 + df.waferv
+# words_NZS=df.pivot(index='entry',columns='waferLUV',values='TotalWords_NZS').fillna(184).astype(int)
+# words_ZS=df.pivot(index='entry',columns='waferLUV',values='TotalWords').fillna(10).astype(int)
+
+words_ZS=pd.read_csv('PacketSizes_ttbar_eolNoise_0.csv').set_index('entry')
+words_NZS=pd.read_csv('PacketSizes_ttbar_eolNoise_NZS_0.csv').set_index('entry')
+
 
 #get a list of the unique entry numbers
-entryList = daq_Data.entry.unique()
+entryList = words_ZS.index.values
 
-#index the pandas datagrame by entry, layer, and waferu/v
-daq_Data.set_index(['entry','layer','waferu','waferv'],inplace=True)
-daq_Data.sort_index(inplace=True)
+# #index the pandas datagrame by entry, layer, and waferu/v
+# daq_Data.set_index(['entry','layer','waferu','waferv'],inplace=True)
+# daq_Data.sort_index(inplace=True)
 
-#creates an 'empty' dataframe to store the number of words from all modules for a given event
-#  this is necessary because of the zero suppression that goes into the MC ntuples, and will keep data in a fixed order
-evt_Data = daq_Data.groupby(['layer','waferu','waferv']).any()[['HDM']]
-evt_Data['Words'] = 0
+# #creates an 'empty' dataframe to store the number of words from all modules for a given event
+# #  this is necessary because of the zero suppression that goes into the MC ntuples, and will keep data in a fixed order
+# evt_Data = daq_Data.groupby(['layer','waferu','waferv']).any()[['HDM']]
+# evt_Data['Words'] = 0
 
 print ('Finished Setup')
 t_now = datetime.datetime.now()
@@ -79,9 +87,12 @@ HGROCReadInBuffer = []
 skipReadInBuffer=False
 
 L1ACount=0
+
+
 #start with an L1A issued in bx 0
 evt = np.random.choice(entryList)
-data  = evt_Data['Words'].add(daq_Data.loc[evt,'TotalWords'],fill_value=0).astype(np.int16).values
+data  = words_ZS.loc[evt].values
+#data = evt_Data['Words'].add(daq_Data.loc[evt,'TotalWords'],fill_value=0).astype(np.int16).values
 # print('    -- ',data[:3])
 
 #list to keep track of what would be in the HGCROC buffer
@@ -113,10 +124,14 @@ for iBX in range(1,N_BX+1):
     if hasL1A:
         count+=1
         evt = np.random.choice(entryList)
-        dataStr = "TotalWords"
+        # dataStr = "TotalWords"
         if not args.freqNZS==0 and count%args.freqNZS==0:
-            dataStr = "TotalWords_NZS"
-        data  = evt_Data['Words'].add(daq_Data.loc[evt,dataStr],fill_value=0).astype(np.int16).values
+            data=words_NZS.loc[evt].values
+        else:
+            data=words_ZS.loc[evt].values
+        # if not args.freqNZS==0 and count%args.freqNZS==0:
+        #     dataStr = "TotalWords_NZS"
+        # data  = evt_Data['Words'].add(daq_Data.loc[evt,dataStr],fill_value=0).astype(np.int16).values
 
         HGROCReadInBuffer.append(data)
 
@@ -135,6 +150,7 @@ for i in range(len(econs)):
     pass
     print(f'{i+1} eTx')
     print('overflows=',econs[i].overflowCount.tolist())
+    print('truncations=',econs[i].truncateCount.tolist())
     print('maxSize=',econs[i].maxSize.tolist())
     print('maxBX_First=',econs[i].maxBX_First.tolist())
     print('maxBX_Last=',econs[i].maxBX_Last.tolist())
